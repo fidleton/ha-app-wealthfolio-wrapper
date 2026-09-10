@@ -32,4 +32,4 @@ HEALTHCHECK \
 	--retries=3 \
 	--start-period=15s \
 	--timeout=10s \
-	CMD curl --fail --silent http://127.0.0.1:8088/api/v1/healthz >/dev/null || exit 1
+	CMD curl --fail --silent http://127.0.0.1:8089/ >/dev/null || exit 1

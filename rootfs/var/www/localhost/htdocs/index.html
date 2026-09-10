@@ -21,6 +21,11 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
         h2 { color: #03a9f4; margin-top: 0; }
+        p {
+            color: var(--secondary-text-color, #a0a0a0);
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
         .open-interface-btn {
             display: inline-block;
             width: 100%;
@@ -106,6 +111,7 @@
             padding-left: 20px;
             font-size: 13px;
             color: #b0bec5;
+            text-align: left;
         }
         .summary-list li {
             margin-bottom: 4px;
@@ -117,16 +123,109 @@
             border-radius: 4px;
             font-weight: bold;
         }
+        .card {
+            background-color: var(--ha-card-background, var(--card-background-color, #1c1c1c));
+            border-radius: var(--ha-card-border-radius, 12px);
+            border: var(--ha-card-border-width, 1px) solid var(--ha-card-border-color, transparent);
+            box-shadow: var(--ha-card-box-shadow, 0 4px 15px rgba(0,0,0,0.4));
+            /* max-width: 520px; */
+            /* width: 100%;*/
+            padding: 2.5rem;
+            text-align: center;
+            display: none; /* Initially hidden until state is verified */
+        }
+        .notice-banner {
+            background-color: rgba(255, 152, 0, 0.1);
+            border-left: 4px solid var(--warning-color, #ff9800);
+            padding: 12px;
+            border-radius: 0 4px 4px 0;
+            text-align: left;
+            margin-bottom: 20px;
+        }
+        /* Configuration Status Table Styles */
+        .status-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 25px;
+            text-align: left;
+        }
+        .status-table th {
+            color: var(--primary-text-color, #ffffff);
+            border-bottom: 2px solid var(--divider-color, #333333);
+            padding: 10px;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+        }
+        .status-table td {
+            padding: 12px 10px;
+            border-bottom: 1px solid var(--divider-color, #222222);
+            font-size: 0.95rem;
+            vertical-align: top;
+        }
+        .status-desc {
+            font-size: 0.82rem;
+            color: var(--secondary-text-color, #a0a0a0);
+            margin-top: 4px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .badge-success {
+            background-color: rgba(76, 175, 80, 0.15);
+            color: var(--success-color, #4caf50);
+            border: 1px solid var(--success-color, #4caf50);
+        }
+        .badge-missing {
+            background-color: rgba(244, 67, 54, 0.15);
+            color: var(--error-color, #f44336);
+            border: 1px solid var(--error-color, #f44336);
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <button class="open-interface-btn" onclick="openWealthfolio()">Open Dashboard</button>
-	<div class="divider"></div>
+    <!-- Global Loading Visual State -->
+    <div id="loading-state" style="font-size: 1.1rem; color: var(--secondary-text-color);">
+        Verifying system operational parameters...
+    </div>
+    <!-- VIEW A: Everything is fully configured -->
+    <div id="ready-card" class="card">
+        <h2>Configuration complete</h2>
+        <a id="ui-button" href="#" target="_blank" rel="noopener noreferrer" class="open-interface-btn">
+            Open Dashboard
+        </a>
+    </div>
+    <!-- VIEW B: Missing configuration items -->
+    <div id="setup-card" class="card">
+        <h2>Configuration Required</h2>
+
+        <div class="notice-banner">
+            <p>Some mandatory options have not been defined yet.</p>
+        </div>
+        <p>Please open the <strong>Configuration</strong> tab of this Home Assistant app, fill in the missing values, and restart the app.</p>
+        <table class="status-table">
+            <thead>
+                <tr>
+                    <th>Option Name</th>
+                    <th style="text-align: right;">Status</th>
+                </tr>
+            </thead>
+            <tbody id="status-table-body">
+                <!-- Injected dynamically via JavaScript -->
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card" style="display: block">
     <h2>CSV Converter</h2>
     <p>Convert your broker-exports to the correct layout for import in Wealthfolio.</p>
-    
+
     <div id="drop-zone">
         📌 <strong>Drag & drop your CSV file here</strong> or click to select
         <input type="file" id="file-input" accept=".csv" style="display: none;" />
@@ -142,16 +241,63 @@
 
     <div id="status-message"></div>
 	<div id="summary-container"></div>
+    </div>
 </div>
 
 <script>
-	// Dynamic redirect function to the Wealthfolio instance
-    function openWealthfolio() {
-        // Automatically fetches the hostname of your Home Assistant server and points to port 8088
-        const hostname = window.location.hostname;
-        const wealthfolioUrl = `http://${hostname}:8088`;
-        window.open(wealthfolioUrl, '_blank');
-    }
+    window.addEventListener("DOMContentLoaded", async () => {
+        const loadingEl = document.getElementById("loading-state");
+        const readyCard = document.getElementById("ready-card");
+        const setupCard = document.getElementById("setup-card");
+
+        try {
+           // 1. Fetch the configuration status file generated by run.sh
+            const response = await fetch('./config-status.json');
+            const data = await response.json();
+
+            loadingEl.style.display = "none";
+
+            // 2. Route view logic based on backend check results
+            if (data.allConfigured) {
+                // Build local URL if all steps are successfully completed
+                const hostUrl = window.location.hostname;
+                const targetUrl = `https://${hostUrl}:${data.port}`;
+
+                document.getElementById("ui-button").href = targetUrl;
+                readyCard.style.display = "block";
+            } else {
+                // Populate the configuration overview list
+                const tableBody = document.getElementById("status-table-body");
+                tableBody.innerHTML = ""; // Clear placeholders
+
+                data.options.forEach(opt => {
+                    const row = document.createElement("tr");
+
+                    // Define badge type based on status
+                    const badgeClass = opt.configured ? "badge-success" : "badge-missing";
+                    const badgeText = opt.configured ? "Ready" : "Missing";
+
+                    row.innerHTML = `
+                        <td>
+                            <strong>${opt.name}</strong>
+                            <div class="status-desc">${opt.description}</div>
+                        </td>
+                        <td style="text-align: right; width: 90px;">
+                            <span class="badge ${badgeClass}">${badgeText}</span>
+                        </td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+
+                setupCard.style.display = "block";
+            }
+        } catch (error) {
+            console.error("Critical error verification failure:", error);
+            loadingEl.innerText = "Error: System could not read configuration parameters.";
+            loadingEl.style.color = "var(--error-color, #ff5252)";
+        }
+    });
+
     let selectedFile = null;
 
     const dropZone = document.getElementById('drop-zone');
@@ -186,18 +332,18 @@
 
     convertBtn.addEventListener('click', () => {
         if (!selectedFile) return;
-        
+
         const format = document.getElementById('input-format').value;
         const reader = new FileReader();
-        
+
         reader.onload = function(e) {
             const text = e.target.result;
 			let result={ csvData: '', successCount: 0, failedTypes:{} };
-            
+
             if (format === 'scalable_capital') {
                 result = parseScalableCapital(text);
             }
-            
+
             if (result.csvData) {
                 downloadCSV(result.csvData, `import_${Date.now()}.csv`);
                 statusMessage.innerText = "✅ Conversion completed! Your download has started.";
@@ -213,16 +359,17 @@ function parseScalableCapital(text) {
     const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
     if (lines.length < 2) return { csvData: '', successCount: 0, failedTypes: {} };
 
-    const targetHeader = ['date', 'symbol', 'activityType', 'quantity', 'unitPrice', 'amount', 'currency', 'fee'];
+    const targetHeader = ['date', 'symbol', 'isin', 'activityType', 'quantity', 'unitPrice', 'amount', 'currency', 'fee', 'tax'];
     let outputRows = [targetHeader.join(',')];
 
     const headerLine = lines[0];
 
     const delimiter = headerLine.includes(';') ? ';' : ',';
-    
+
     const headers = headerLine.split(delimiter).map(h => h.trim().replace(/"/g, '').toLowerCase());
 
     const idxDate = headers.findIndex(h => h === 'date' || h === 'datum' || h === 'zeit');
+    const idxTime = headers.findIndex(h => h === 'time');
     const idxIsin = headers.findIndex(h => h === 'isin' || h === 'wkn' || h === 'symbol');
 	const idxStatus = headers.findIndex(h => h === 'status');
     const idxType = headers.findIndex(h => (h === 'type' || h === 'transaktionsart' || h === 'transaktion' || h === 'art') && !h.includes('asset'));
@@ -234,10 +381,10 @@ function parseScalableCapital(text) {
 	const idxTax = headers.findIndex(h => h === 'tax');
 
     if (idxDate === -1 || idxType === -1) {
-        return { 
-            csvData: '', 
-            successCount: 0, 
-            failedTypes: { "Invalid CSV Structure (Date or Transaction Type column missing)": lines.length - 1 } 
+        return {
+            csvData: '',
+            successCount: 0,
+            failedTypes: { "Invalid CSV Structure (Date or Transaction Type column missing)": lines.length - 1 }
         };
     }
 
@@ -246,11 +393,11 @@ function parseScalableCapital(text) {
 
     for (let i = 1; i < lines.length; i++) {
         const columns = lines[i].split(delimiter).map(c => c.trim().replace(/"/g, ''));
-        
+
 		let rawStatus = (columns[idxStatus] || '').trim();
 		if (!rawStatus || rawStatus.toUpperCase() !== 'EXECUTED') continue;
-		
-		
+
+
         let rawType = (columns[idxType] || '').trim();
         if (!rawType) continue;
 
@@ -264,10 +411,14 @@ function parseScalableCapital(text) {
         else if (upperType.includes('DEPOSIT') || upperType.includes('EINZAHLUNG')) activityType = 'DEPOSIT';
         else if (upperType.includes('WITHDRAWAL') || upperType.includes('AUSZAHLUNG')) activityType = 'WITHDRAWAL';
 		else if (upperType.includes('FEE')) activityType = 'FEE';
-		else if (upperType.includes('SECURITY TRANSFER')) activityType = "TRANSFER";
-		else if (upperType.includes('CORPORATE ACTION')) activityType = "SPLIT";
 
         if (!activityType) {
+            if (upperType.includes('CORPORATE ACTION') || upperType.includes('AKTION')) {
+                rawType += ' cannot be imported through CSV';
+            }
+            if (upperType.includes('SECURITY TRANSFER')) {
+                rawType += ' cannot be imported due to bug in Wealthfolio';
+            }
             failedTypes[rawType] = (failedTypes[rawType] || 0) + 1;
             continue;
         }
@@ -275,9 +426,7 @@ function parseScalableCapital(text) {
         // Helperfunctie to convert Europesean numbers (1.234,56) into standard floats (1234.56)
         const cleanNum = (val) => val ? val.replace(/\./g, '').replace(',', '.') : '0';
 
-        let rawDate = columns[idxDate] || '';
-        let formattedDate = rawDate.split('.').reverse().join('-'); // DD.MM.YYYY -> YYYY-MM-DD
-        if (!formattedDate.includes('-')) formattedDate = rawDate; // Fallback
+        let formattedDate = columns[idxDate]  + ' ' + columns[idxTime] || '';
 
         let isin = idxIsin !== -1 ? columns[idxIsin] : '';
         let quantity = idxShares !== -1 ? cleanNum(columns[idxShares]) : '0';
@@ -295,14 +444,11 @@ function parseScalableCapital(text) {
 		let tax = idxTax !== -1 ? cleanNum(columns[idxTax]) : '0';
 
         let symbol = isin;
-        if (['DEPOSIT', 'WITHDRAWAL', 'INTEREST'].includes(activityType)) {
+        if (['DEPOSIT', 'WITHDRAWAL', 'INTEREST', 'FEE'].includes(activityType)) {
             symbol = `$CASH-${currency}`;
         }
 
-        outputRows.push([formattedDate, symbol, activityType, quantity, unitPrice, amount, currency, fee].join(','));
-		if (tax > 0) {
-			outputRows.push([formattedDate, symbol, "TAX", quantity, unitPrice, tax, currency, '0.00'].join(','));
-		}
+        outputRows.push([formattedDate, symbol, isin, activityType, quantity, unitPrice, amount, currency, fee, tax].join(','));
         successCount++;
     }
 
@@ -316,10 +462,10 @@ function parseScalableCapital(text) {
 function showSummary(successCount, failedTypes) {
     // Veiligheidscheck: zorg dat failedTypes altijd een object is
     if (!failedTypes) failedTypes = {};
-    
+
     const failedKeys = Object.keys(failedTypes);
     const hasErrors = failedKeys.length > 0;
-    
+
     // We starten de HTML string met een backtick (`)
     let html = `
         <div class="summary-box ${hasErrors ? 'has-errors' : ''}">
@@ -331,22 +477,22 @@ function showSummary(successCount, failedTypes) {
     if (hasErrors) {
         html += `<li><span class="badge-fail">Skipped</span> The following transaction types could not be mapped to Wealthfolio:</li>`;
         html += '<ul class="summary-list" style="list-style-type: circle; margin-top: 5px;">';
-        
+
         failedKeys.forEach(type => {
             html += `<li>Row type <strong>"${type}"</strong>: skipped ${failedTypes[type]} time(s)</li>`;
         });
-        
+
         html += '</ul>';
     } else {
         html += `<li>✨ All rows were successfully recognized and processed!</li>`;
     }
 
     html += `</ul></div>`;
-    
+
     summaryContainer.innerHTML = html;
 }
 
-	
+
     function downloadCSV(csvContent, fileName) {
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement("a");
