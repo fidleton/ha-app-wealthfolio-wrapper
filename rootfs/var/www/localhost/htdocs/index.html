@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="nl">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,6 +11,7 @@
             color: #e1e1e1;
             padding: 20px;
             margin: 0;
+            box-sizing: border-box;
         }
         .container {
             max-width: 600px;
@@ -19,6 +20,7 @@
             padding: 30px;
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            box-sizing: border-box;
         }
         h2 { color: #03a9f4; margin-top: 0; }
         p {
@@ -50,79 +52,6 @@
             border-top: 1px solid #333;
             margin-bottom: 25px;
         }
-        #drop-zone {
-            border: 2px dashed #03a9f4;
-            padding: 40px 20px;
-            text-align: center;
-            border-radius: 8px;
-            cursor: pointer;
-            background: #252525;
-            transition: background 0.3s;
-        }
-        #drop-zone:hover { background: #2a2a2a; }
-        #format-selection {
-            display: none;
-            margin-top: 20px;
-            padding: 20px;
-            background: #252525;
-            border-radius: 8px;
-            border: 1px solid #333;
-        }
-        select, button {
-            padding: 10px;
-            font-size: 14px;
-            border-radius: 6px;
-            border: 1px solid #444;
-            background: #111;
-            color: #fff;
-            margin-top: 10px;
-        }
-        button {
-            background-color: #03a9f4;
-            color: #fff;
-            border: none;
-            cursor: pointer;
-            font-weight: bold;
-            margin-left: 10px;
-        }
-        button:hover { background-color: #0288d1; }
-        #status-message {
-            margin-top: 20px;
-            font-weight: bold;
-            color: #ff9800;
-        }
-		.summary-box {
-            margin-top: 20px;
-            padding: 15px;
-            border-radius: 8px;
-            background: #222;
-            border-left: 4px solid #4caf50;
-        }
-        .summary-box.has-errors {
-            border-left-color: #f44336;
-        }
-        .summary-title {
-            font-weight: bold;
-            margin-bottom: 8px;
-            color: #fff;
-        }
-        .summary-list {
-            margin: 5px 0 0 0;
-            padding-left: 20px;
-            font-size: 13px;
-            color: #b0bec5;
-            text-align: left;
-        }
-        .summary-list li {
-            margin-bottom: 4px;
-        }
-        .badge-fail {
-            background: #5d1c1c;
-            color: #ff8a80;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-weight: bold;
-        }
         .card {
             background-color: var(--ha-card-background, var(--card-background-color, #1c1c1c));
             border-radius: var(--ha-card-border-radius, 12px);
@@ -133,6 +62,7 @@
             padding: 2.5rem;
             text-align: center;
             display: none; /* Initially hidden until state is verified */
+            box-sizing: border-box;
         }
         .notice-banner {
             background-color: rgba(255, 152, 0, 0.1);
@@ -166,6 +96,7 @@
             font-size: 0.82rem;
             color: var(--secondary-text-color, #a0a0a0);
             margin-top: 4px;
+            overflow-wrap: anywhere;
         }
         .badge {
             display: inline-block;
@@ -185,6 +116,29 @@
             color: var(--error-color, #f44336);
             border: 1px solid var(--error-color, #f44336);
         }
+        @media (max-width: 480px) {
+            body {
+                padding: 12px;
+            }
+            .container {
+                margin: 16px auto;
+                padding: 16px;
+            }
+            .card {
+                padding: 1rem;
+            }
+            .status-table {
+                table-layout: fixed;
+            }
+            .status-table th,
+            .status-table td {
+                padding: 8px 6px;
+            }
+            .status-table th:last-child,
+            .status-table td:last-child {
+                width: 76px !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -203,12 +157,12 @@
     </div>
     <!-- VIEW B: Missing configuration items -->
     <div id="setup-card" class="card">
-        <h2>Configuration Required</h2>
+        <h2 id="setup-title">Configuration Required</h2>
 
         <div class="notice-banner">
             <p>Some mandatory options have not been defined yet.</p>
         </div>
-        <p>Please open the <strong>Configuration</strong> tab of this Home Assistant app, fill in the missing values, and restart the app.</p>
+        <p id="configuration-instruction">Please open the <strong>Configuration</strong> tab of this Home Assistant app, fill in the missing values, and restart the app.</p>
         <table class="status-table">
             <thead>
                 <tr>
@@ -222,26 +176,6 @@
         </table>
     </div>
 
-    <div class="card" style="display: block">
-    <h2>CSV Converter</h2>
-    <p>Convert your broker-exports to the correct layout for import in Wealthfolio.</p>
-
-    <div id="drop-zone">
-        📌 <strong>Drag & drop your CSV file here</strong> or click to select
-        <input type="file" id="file-input" accept=".csv" style="display: none;" />
-    </div>
-
-    <div id="format-selection">
-        <label for="input-format"><strong>Choose the input format:</strong></label><br>
-        <select id="input-format">
-            <option value="scalable_capital">Scalable Capital (CSV)</option>
-        </select>
-        <button id="convert-btn">Convert</button>
-    </div>
-
-    <div id="status-message"></div>
-	<div id="summary-container"></div>
-    </div>
 </div>
 
 <script>
@@ -252,44 +186,46 @@
 
         try {
            // 1. Fetch the configuration status file generated by run.sh
-            const response = await fetch('./config-status.json');
+            const response = await fetch('./config-status.json', { cache: "no-store" });
             const data = await response.json();
 
             loadingEl.style.display = "none";
 
-            // 2. Route view logic based on backend check results
+            // 2. Always show the configuration overview
+            const tableBody = document.getElementById("status-table-body");
+            tableBody.innerHTML = "";
+
+            data.options.forEach(opt => {
+                const row = document.createElement("tr");
+
+                const badgeClass = opt.configured ? "badge-success" : "badge-missing";
+                const badgeText = opt.configured ? "Ready" : "Missing";
+
+                row.innerHTML = `
+                    <td>
+                        <strong>${opt.name}</strong>
+                        <div class="status-desc">${opt.description}</div>
+                    </td>
+                    <td style="text-align: right; width: 90px;">
+                        <span class="badge ${badgeClass}">${badgeText}</span>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+            setupCard.style.display = "block";
+
+            // 3. Show the dashboard and suppress warnings when fully configured
             if (data.allConfigured) {
-                // Build local URL if all steps are successfully completed
                 const hostUrl = window.location.hostname;
                 const targetUrl = `https://${hostUrl}:${data.port}`;
 
                 document.getElementById("ui-button").href = targetUrl;
                 readyCard.style.display = "block";
+                document.getElementById("setup-title").innerText = "Configuration complete";
+                document.querySelector("#setup-card .notice-banner").style.display = "none";
+                document.getElementById("configuration-instruction").style.display = "none";
             } else {
-                // Populate the configuration overview list
-                const tableBody = document.getElementById("status-table-body");
-                tableBody.innerHTML = ""; // Clear placeholders
-
-                data.options.forEach(opt => {
-                    const row = document.createElement("tr");
-
-                    // Define badge type based on status
-                    const badgeClass = opt.configured ? "badge-success" : "badge-missing";
-                    const badgeText = opt.configured ? "Ready" : "Missing";
-
-                    row.innerHTML = `
-                        <td>
-                            <strong>${opt.name}</strong>
-                            <div class="status-desc">${opt.description}</div>
-                        </td>
-                        <td style="text-align: right; width: 90px;">
-                            <span class="badge ${badgeClass}">${badgeText}</span>
-                        </td>
-                    `;
-                    tableBody.appendChild(row);
-                });
-
-                setupCard.style.display = "block";
+                readyCard.style.display = "none";
             }
         } catch (error) {
             console.error("Critical error verification failure:", error);
@@ -298,210 +234,6 @@
         }
     });
 
-    let selectedFile = null;
-
-    const dropZone = document.getElementById('drop-zone');
-    const fileInput = document.getElementById('file-input');
-    const formatSelection = document.getElementById('format-selection');
-    const convertBtn = document.getElementById('convert-btn');
-    const statusMessage = document.getElementById('status-message');
-	const summaryContainer = document.getElementById('summary-container');
-
-    dropZone.addEventListener('click', () => fileInput.click());
-    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = '#fff'; });
-    dropZone.addEventListener('dragleave', () => dropZone.style.borderColor = '#03a9f4');
-    dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.style.borderColor = '#03a9f4';
-        if (e.dataTransfer.files.length > 0) handleFileSelect(e.dataTransfer.files[0]);
-    });
-    fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) handleFileSelect(e.target.files[0]);
-    });
-
-    function handleFileSelect(file) {
-        if (!file.name.endsWith('.csv')) {
-            statusMessage.innerText = "⚠️ Please select a valid .csv file.";
-            return;
-        }
-        selectedFile = file;
-        statusMessage.innerText = `📁 File loaded: ${file.name}`;
-        formatSelection.style.display = 'block';
-		summaryContainer.innerHTML = '';
-    }
-
-    convertBtn.addEventListener('click', () => {
-        if (!selectedFile) return;
-
-        const format = document.getElementById('input-format').value;
-        const reader = new FileReader();
-
-        reader.onload = function(e) {
-            const text = e.target.result;
-			let result={ csvData: '', successCount: 0, failedTypes:{} };
-
-            if (format === 'scalable_capital') {
-                result = parseScalableCapital(text);
-            }
-
-            if (result.csvData) {
-                downloadCSV(result.csvData, `import_${Date.now()}.csv`);
-                statusMessage.innerText = "✅ Conversion completed! Your download has started.";
-				showSummary(result.successCount, result.failedTypes);
-            } else {
-				statusMessage.innerText = "❌ Conversion failed. No data was processed.";
-			}
-        };
-        reader.readAsText(selectedFile);
-    });
-
-function parseScalableCapital(text) {
-    const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
-    if (lines.length < 2) return { csvData: '', successCount: 0, failedTypes: {} };
-
-    const targetHeader = ['date', 'symbol', 'isin', 'activityType', 'quantity', 'unitPrice', 'amount', 'currency', 'fee', 'tax'];
-    let outputRows = [targetHeader.join(',')];
-
-    const headerLine = lines[0];
-
-    const delimiter = headerLine.includes(';') ? ';' : ',';
-
-    const headers = headerLine.split(delimiter).map(h => h.trim().replace(/"/g, '').toLowerCase());
-
-    const idxDate = headers.findIndex(h => h === 'date' || h === 'datum' || h === 'zeit');
-    const idxTime = headers.findIndex(h => h === 'time');
-    const idxIsin = headers.findIndex(h => h === 'isin' || h === 'wkn' || h === 'symbol');
-	const idxStatus = headers.findIndex(h => h === 'status');
-    const idxType = headers.findIndex(h => (h === 'type' || h === 'transaktionsart' || h === 'transaktion' || h === 'art') && !h.includes('asset'));
-    const idxShares = headers.findIndex(h => h === 'shares' || h === 'anzahl' || h === 'stücke' || h === 'stuecke');
-    const idxPrice = headers.findIndex(h => h === 'price' || h === 'kurs' || h === 'wert');
-    const idxAmount = headers.findIndex(h => h === 'amount' || h === 'betrag' || h === 'volumen');
-    const idxCurrency = headers.findIndex(h => h === 'currency' || h === 'währung' || h === 'waehrung');
-    const idxFee = headers.findIndex(h => h === 'fee' || h === 'gebühr' || h === 'gebuehr' || h === 'kosten');
-	const idxTax = headers.findIndex(h => h === 'tax');
-
-    if (idxDate === -1 || idxType === -1) {
-        return {
-            csvData: '',
-            successCount: 0,
-            failedTypes: { "Invalid CSV Structure (Date or Transaction Type column missing)": lines.length - 1 }
-        };
-    }
-
-    let successCount = 0;
-    let failedTypes = {};
-
-    for (let i = 1; i < lines.length; i++) {
-        const columns = lines[i].split(delimiter).map(c => c.trim().replace(/"/g, ''));
-
-		let rawStatus = (columns[idxStatus] || '').trim();
-		if (!rawStatus || rawStatus.toUpperCase() !== 'EXECUTED') continue;
-
-
-        let rawType = (columns[idxType] || '').trim();
-        if (!rawType) continue;
-
-        let activityType = null;
-        const upperType = rawType.toUpperCase();
-
-        if (upperType.includes('SELL') || upperType.includes('VERKAUF')) activityType = 'SELL';
-        else if (upperType.includes('BUY') || upperType.includes('SAVINGS PLAN') || upperType.includes('KAUF')) activityType = 'BUY';
-        else if (upperType.includes('DISTRIBUTION') || upperType.includes('AUSSCHÜTTUNG') || upperType.includes('DIVIDENDE')) activityType = 'DIVIDEND';
-        else if (upperType.includes('INTEREST') || upperType.includes('ZINSEN')) activityType = 'INTEREST';
-        else if (upperType.includes('DEPOSIT') || upperType.includes('EINZAHLUNG')) activityType = 'DEPOSIT';
-        else if (upperType.includes('WITHDRAWAL') || upperType.includes('AUSZAHLUNG')) activityType = 'WITHDRAWAL';
-		else if (upperType.includes('FEE')) activityType = 'FEE';
-
-        if (!activityType) {
-            if (upperType.includes('CORPORATE ACTION') || upperType.includes('AKTION')) {
-                rawType += ' cannot be imported through CSV';
-            }
-            if (upperType.includes('SECURITY TRANSFER')) {
-                rawType += ' cannot be imported due to bug in Wealthfolio';
-            }
-            failedTypes[rawType] = (failedTypes[rawType] || 0) + 1;
-            continue;
-        }
-
-        // Helperfunctie to convert Europesean numbers (1.234,56) into standard floats (1234.56)
-        const cleanNum = (val) => val ? val.replace(/\./g, '').replace(',', '.') : '0';
-
-        let formattedDate = columns[idxDate]  + ' ' + columns[idxTime] || '';
-
-        let isin = idxIsin !== -1 ? columns[idxIsin] : '';
-        let quantity = idxShares !== -1 ? cleanNum(columns[idxShares]) : '0';
-		if (activityType === "TRANSFER") {
-			if (quantity < 0) {
-				activityType = "TRANSFER_OUT";
-			} else {
-				activityType = "TRANSFER_IN";
-			}
-		}
-        let unitPrice = idxPrice !== -1 ? cleanNum(columns[idxPrice]) : '0';
-        let amount = idxAmount !== -1 ? Math.abs(parseFloat(cleanNum(columns[idxAmount])) || 0).toString() : '0';
-        let currency = idxCurrency !== -1 ? columns[idxCurrency] : 'EUR';
-        let fee = idxFee !== -1 ? cleanNum(columns[idxFee]) : '0';
-		let tax = idxTax !== -1 ? cleanNum(columns[idxTax]) : '0';
-
-        let symbol = isin;
-        if (['DEPOSIT', 'WITHDRAWAL', 'INTEREST', 'FEE'].includes(activityType)) {
-            symbol = `$CASH-${currency}`;
-        }
-
-        outputRows.push([formattedDate, symbol, isin, activityType, quantity, unitPrice, amount, currency, fee, tax].join(','));
-        successCount++;
-    }
-
-    return {
-        csvData: outputRows.join('\n'),
-        successCount: successCount,
-        failedTypes: failedTypes
-    };
-}
-
-function showSummary(successCount, failedTypes) {
-    // Veiligheidscheck: zorg dat failedTypes altijd een object is
-    if (!failedTypes) failedTypes = {};
-
-    const failedKeys = Object.keys(failedTypes);
-    const hasErrors = failedKeys.length > 0;
-
-    // We starten de HTML string met een backtick (`)
-    let html = `
-        <div class="summary-box ${hasErrors ? 'has-errors' : ''}">
-            <div class="summary-title">📈 Conversion Overview</div>
-            <ul class="summary-list">
-                <li>Successfully converted rows: <strong>${successCount}</strong></li>
-    `;
-
-    if (hasErrors) {
-        html += `<li><span class="badge-fail">Skipped</span> The following transaction types could not be mapped to Wealthfolio:</li>`;
-        html += '<ul class="summary-list" style="list-style-type: circle; margin-top: 5px;">';
-
-        failedKeys.forEach(type => {
-            html += `<li>Row type <strong>"${type}"</strong>: skipped ${failedTypes[type]} time(s)</li>`;
-        });
-
-        html += '</ul>';
-    } else {
-        html += `<li>✨ All rows were successfully recognized and processed!</li>`;
-    }
-
-    html += `</ul></div>`;
-
-    summaryContainer.innerHTML = html;
-}
-
-
-    function downloadCSV(csvContent, fileName) {
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement("a");
-        link.setAttribute("href", URL.createObjectURL(blob));
-        link.setAttribute("download", fileName);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    }
 </script>
 </body>
 </html>
