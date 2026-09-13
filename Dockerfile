@@ -1,4 +1,4 @@
-FROM wealthfolio/wealthfolio:3.6.3
+FROM wealthfolio/wealthfolio:3.8.0
 
 ARG BUILD_ARCH
 ARG BASHIO_VERSION=0.19.0
