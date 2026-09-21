@@ -7,6 +7,8 @@ The configurable app options are:
 - `secret_key`: optional. When omitted, the app generates a key on first start
   and persists it in the app configuration.
 - `password`: password required for access.
+- `log_level`: Wealthfolio application log verbosity. Options are `error`,
+  `warn`, `info`, `debug`, and `trace`; the default is `info`.
 - `cors`: list of origin URLs allowed to make cross-origin requests. At least
   one origin must be specified for the app to function properly. The default
   is an empty list.

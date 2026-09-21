@@ -31,6 +31,10 @@
     "password": {
       "name": "Password",
       "description": "Password to access the web interface."
+    },
+    "log_level": {
+      "name": "Log level",
+      "description": "Verbosity of the Wealthfolio application logs."
     }
   }
 }

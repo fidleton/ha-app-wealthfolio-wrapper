@@ -36,6 +36,7 @@
     },
     "cors": ["url"],
     "password": "password",
-    "secret_key": "password?"
+    "secret_key": "password?",
+    "log_level": "list(error|warn|info|debug|trace)?"
   }
 }

@@ -19,6 +19,12 @@ if [[ -z "${auth_password}" ]]; then
     exit 1
 fi
 cors_origin=$(bashio::jq "/data/options.json" ".cors | join(\",\")")
+if bashio::config.has_value "log_level"; then
+    log_level=$(bashio::config "log_level")
+else
+    log_level="info"
+    bashio::app.option "log_level" "${log_level}"
+fi
 
 export WF_LISTEN_ADDR="127.0.0.1:8088"
 export WF_STATIC_DIR="/app/dist"
@@ -26,5 +32,6 @@ export WF_DB_PATH="/data/wealthfolio.db"
 export WF_SECRET_KEY="${secret_key}"
 export WF_AUTH_PASSWORD_HASH="$(printf '%s' "${auth_password}" | argon2 "$(openssl rand -hex 16)" -id -e)"
 export WF_CORS_ALLOW_ORIGINS="${cors_origin}"
+export RUST_LOG="${log_level}"
 
 exec /usr/local/bin/wealthfolio-server

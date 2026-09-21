@@ -19,6 +19,8 @@ uses the Home Assistant certificates mounted at `/ssl/fullchain.pem` and
 - `secret_key`: optional. The app generates and persists a key automatically on
   first start when this is omitted.
 - `password`: password required for access.
+- `log_level`: Wealthfolio application log verbosity. Options are `error`,
+  `warn`, `info`, `debug`, and `trace`; the default is `info`.
 - `cors`: list of origin URLs allowed to make cross-origin requests. Add at
   least one origin for the app to function properly; the default is an empty
   list.
